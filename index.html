@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="HDS-R">
+<meta name="mobile-web-app-capable" content="yes">
+<title>長谷川式認知症スケール（HDS-R）</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Hiragino Sans','Meiryo',sans-serif;background:#f8f8f6;color:#111;min-height:100vh}
+#app{max-width:900px;margin:0 auto;padding:2.5rem 2.5rem}
+.screen{display:none}.screen.active{display:block}
+h1{font-size:32px;font-weight:700;margin-bottom:.5rem}
+h2{font-size:26px;font-weight:700;margin-bottom:1.4rem}
+.card{background:#fff;border-radius:16px;padding:2.5rem;box-shadow:0 2px 16px rgba(0,0,0,.07)}
+p.sub{color:#666;line-height:1.8;margin-bottom:1rem;font-size:18px}
+.big-btn{display:inline-block;background:#111;color:#fff;font-size:22px;padding:1.1rem 3.5rem;border:none;border-radius:12px;cursor:pointer;margin-top:1rem;transition:opacity .2s}
+.big-btn:hover{opacity:.85}
+.field{margin-bottom:1.2rem}
+.field label{display:block;font-size:17px;color:#666;margin-bottom:.4rem}
+.field input{width:100%;padding:14px 18px;font-size:20px;border:1.5px solid #ddd;border-radius:10px;background:#fff;outline:none;transition:border .2s}
+.field input:focus{border-color:#111}
+.prog-wrap{margin-bottom:2rem}
+.prog-bar{height:7px;background:#eee;border-radius:4px}
+.prog-fill{height:7px;background:#111;border-radius:4px;transition:width .35s}
+.prog-label{font-size:15px;color:#aaa;margin-top:.5rem;text-align:right}
+.q-tag{display:inline-block;font-size:15px;background:#111;color:#fff;padding:5px 14px;border-radius:20px;margin-bottom:.9rem}
+.q-text{font-size:28px;font-weight:700;line-height:1.55;margin-bottom:.5rem;white-space:pre-line}
+.q-sub{font-size:16px;color:#888;margin-bottom:1.4rem;line-height:1.7}
+.inp{width:100%;padding:15px 18px;font-size:20px;border:1.5px solid #ddd;border-radius:10px;background:#fff;outline:none;transition:border .2s;margin-bottom:.6rem}
+.inp:focus{border-color:#111}
+select.inp{background:#fff;cursor:pointer}
+.opt-btn{display:block;width:100%;padding:18px 20px;font-size:19px;text-align:left;background:#fff;border:1.5px solid #ddd;border-radius:10px;cursor:pointer;margin-bottom:12px;transition:all .15s}
+.opt-btn:hover{border-color:#999}
+.opt-btn.sel{background:#111;color:#fff;border-color:#111}
+.nav-row{display:flex;justify-content:space-between;margin-top:2rem;gap:12px}
+.nav-btn{padding:16px 32px;font-size:19px;border-radius:10px;cursor:pointer;border:1.5px solid #ddd;background:#fff;transition:all .15s;flex:1}
+.nav-btn:hover{border-color:#999}
+.nav-btn.pri{background:#111;color:#fff;border-color:#111}
+.nav-btn.pri:hover{opacity:.85}
+.nav-btn:disabled{opacity:.3;cursor:default}
+
+
+.memo-words{font-size:60px;font-weight:800;letter-spacing:.2em;text-align:center;margin:2.5rem 0;color:#111}
+.hint-box{background:#f5f5f5;border-radius:10px;padding:14px 18px;font-size:16px;color:#666;margin-bottom:1.2rem;line-height:1.7}
+
+/* 結果 */
+.score-circle{width:170px;height:170px;border-radius:50%;border:5px solid #111;display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0 auto 1.2rem}
+.score-num{font-size:62px;font-weight:800;line-height:1}
+.score-den{font-size:16px;color:#888;margin-top:4px}
+.score-level{text-align:center;font-size:22px;font-weight:700;margin-bottom:1.8rem}
+.res-table{width:100%;border-collapse:collapse;font-size:16px;margin-bottom:1.8rem}
+.res-table th{background:#f5f5f5;padding:10px 14px;text-align:left;font-weight:600;color:#888;border-bottom:1px solid #eee}
+.res-table td{padding:11px 14px;border-bottom:1px solid #f0f0f0;vertical-align:top}
+.print-btn{display:block;width:100%;padding:18px;font-size:20px;font-weight:700;background:#111;color:#fff;border:none;border-radius:12px;cursor:pointer;margin-bottom:1rem;transition:opacity .2s}
+.print-btn:hover{opacity:.85}
+.reset-btn{display:block;width:100%;padding:16px;font-size:18px;background:#fff;border:1.5px solid #ddd;border-radius:12px;cursor:pointer;transition:border .2s}
+.reset-btn:hover{border-color:#999}
+
+/* 数字ボタングリッド */
+.num-grid{display:flex;gap:12px;flex-wrap:wrap;margin-top:.6rem}
+.num-btn{padding:16px 24px;font-size:24px;background:#fff;border:1.5px solid #ddd;border-radius:10px;cursor:pointer;min-width:64px;text-align:center;transition:all .15s}
+.num-btn:hover{border-color:#999}
+.num-btn.sel{background:#111;color:#fff;border-color:#111}
+
+@media print{
+  body{background:#fff}
+  #cover,#pat,#qscreen,#res{display:none!important}
+  #printarea{display:block!important}
+}
+#printarea{display:none;font-family:'Hiragino Sans','Meiryo',sans-serif;padding:24px;font-size:13px;max-width:700px;margin:0 auto}
+.pt{font-size:20px;font-weight:700;margin-bottom:3px}
+.ps{font-size:12px;color:#888;margin-bottom:12px}
+.pm{display:flex;gap:20px;font-size:12px;padding-bottom:10px;border-bottom:1px solid #ccc;margin-bottom:12px;flex-wrap:wrap}
+.pscore{font-size:34px;font-weight:800}
+.plevel{display:inline-block;font-size:13px;padding:3px 12px;border:1.5px solid #333;border-radius:5px;margin-left:12px;vertical-align:middle}
+.ptbl{width:100%;border-collapse:collapse;font-size:12px;margin:12px 0}
+.ptbl th{background:#f0f0f0;padding:5px 8px;text-align:left;border:1px solid #ccc;font-weight:600}
+.ptbl td{padding:5px 8px;border:1px solid #ccc;vertical-align:top}
+.pnote{font-size:11px;color:#888;border-top:1px solid #ccc;padding-top:8px;margin-top:6px;line-height:1.7}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- カバー -->
+<div id="cover" class="screen active">
+  <div class="card" style="text-align:center;padding:3rem 2rem">
+    <p style="font-size:15px;font-weight:700;color:#111;margin-bottom:.2rem">ふじた内科クリニック</p>
+    <p style="font-size:13px;color:#888;margin-bottom:1.5rem;line-height:1.8">院長　藤田　雅史<br>〒662-0934　兵庫県西宮市西宮浜4丁目14-3<br>TEL：0798-35-1530</p>
+    <h1>長谷川式認知症スケール</h1>
+    <p style="font-size:13px;color:#aaa;margin-bottom:.3rem">改訂長谷川式簡易知能評価スケール（HDS-R）</p>
+    <p class="sub" style="margin-top:1rem">全9問です。<br>各設問に沿って採点してください。</p>
+    <button class="big-btn" id="startBtn">はじめる</button>
+  </div>
+</div>
+
+<!-- 患者情報 -->
+<div id="pat" class="screen">
+  <div class="card">
+    <h2>患者情報の入力</h2>
+    <div class="field"><label>お名前</label><input type="text" id="ptName" placeholder="山田 太郎"></div>
+    <div class="field"><label>生年月日</label><input type="text" id="ptDob" placeholder="1945年3月15日" oninput="calcAgeFromDob()"></div>
+    <div class="field"><label>年齢（自動計算）</label><input type="text" id="ptAge" placeholder="生年月日を入力すると自動表示" inputmode="numeric" style="background:#f5f5f5;color:#555"></div>
+    <button class="big-btn" id="beginBtn">問診を開始する</button>
+  </div>
+</div>
+
+<!-- 問診 -->
+<div id="qscreen" class="screen">
+  <div class="prog-wrap">
+    <div class="prog-bar"><div class="prog-fill" id="prog"></div></div>
+    <div class="prog-label" id="progLabel"></div>
+  </div>
+  <div class="card">
+    <div class="q-tag" id="qtag"></div>
+    <div class="q-text" id="qtext"></div>
+    <div class="q-sub" id="qsub"></div>
+    <div id="qarea"></div>
+    <div class="nav-row">
+      <button class="nav-btn" id="backBtn">← 戻る</button>
+      <button class="nav-btn pri" id="nextBtn">次へ →</button>
+    </div>
+  </div>
+</div>
+
+<!-- 結果 -->
+<div id="res" class="screen">
+  <div class="card">
+    <div class="score-circle">
+      <div class="score-num" id="scoreNum"></div>
+      <div class="score-den">/ 30点</div>
+    </div>
+    <div class="score-level" id="scoreLevel"></div>
+    <table class="res-table">
+      <thead><tr><th>設問</th><th>回答・詳細</th><th style="text-align:right">得点</th></tr></thead>
+      <tbody id="resTbody"></tbody>
+    </table>
+    <div style="text-align:center;padding:1rem 0 1.2rem;border-top:1px solid #f0f0f0;margin-bottom:1rem">
+      <div style="font-size:17px;font-weight:700;color:#111;margin-bottom:.3rem">ふじた内科クリニック</div>
+      <div style="font-size:14px;color:#888;line-height:1.8">院長　藤田　雅史<br>〒662-0934　兵庫県西宮市西宮浜4丁目14-3<br>TEL：0798-35-1530</div>
+    </div>
+    <button class="print-btn" id="printBtn">🖨　印刷 / PDF保存</button>
+    <button class="reset-btn" id="resetBtn">最初からやり直す</button>
+  </div>
+</div>
+
+<!-- 印刷エリア -->
+<div id="printarea">
+  <div class="pt">長谷川式認知症スケール（HDS-R）検査結果</div>
+  <div class="ps">改訂長谷川式簡易知能評価スケール</div>
+  <div class="pm" id="pMeta"></div>
+  <div style="margin-bottom:14px"><span class="pscore" id="pScore"></span><span class="plevel" id="pLevel"></span></div>
+  <table class="ptbl">
+    <thead><tr><th>設問</th><th>内容</th><th>回答・詳細</th><th style="text-align:right;width:60px">得点</th></tr></thead>
+    <tbody id="pTbody"></tbody>
+    <tfoot><tr><td colspan="3" style="text-align:right;font-weight:700;padding:6px 8px">合計</td><td id="pTotal" style="text-align:right;font-weight:700;padding:6px 8px"></td></tr></tfoot>
+  </table>
+  <div class="pnote">
+    実施日：<span id="pDate"></span><br>
+    担当医：ふじた内科クリニック　院長　藤田　雅史<br>
+    ※ カットオフ値 20/21点（20点以下は認知症の疑いあり）
+  </div>
+</div>
+
+</div><!-- /app -->
+
+<script>
+function calcAgeFromDob() {
+  var dob = document.getElementById('ptDob').value;
+  // 「1945年3月15日」「1945/3/15」「1945-3-15」などに対応
+  var m = dob.match(/(\d{1,4})[年\/\-\.](\d{1,2})[月\/\-\.](\d{1,2})/);
+  if (!m) { document.getElementById('ptAge').value = ''; return; }
+  var y = parseInt(m[1]), mo = parseInt(m[2]), d = parseInt(m[3]);
+  // 和暦対応（大正・昭和・平成・令和）
+  if (y < 200) {
+    // 和暦の場合は西暦に変換できないのでそのまま
+  }
+  var today = new Date();
+  var age = today.getFullYear() - y;
+  if (today.getMonth() + 1 < mo || (today.getMonth() + 1 === mo && today.getDate() < d)) age--;
+  if (age >= 0 && age < 150) document.getElementById('ptAge').value = age;
+  else document.getElementById('ptAge').value = '';
+}
+
+var NOW = new Date();
+var YEAR = NOW.getFullYear();
+var MONTH = NOW.getMonth() + 1;
+var DAY = NOW.getDate();
+var WD = ['日','月','火','水','木','金','土'][NOW.getDay()];
+var WORDS = ['桜','猫','電車'];
+var cur = 0, ans = {}, pat = {};
+
+// ------- 画面切替 -------
+function show(id) {
+  ['cover','pat','qscreen','res'].forEach(function(s) {
+    document.getElementById(s).classList.remove('active');
+  });
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+// ------- イベント -------
+document.getElementById('startBtn').onclick = function() { show('pat'); };
+
+document.getElementById('beginBtn').onclick = function() {
+  pat.name = document.getElementById('ptName').value || '未入力';
+  pat.dob  = document.getElementById('ptDob').value  || '未入力';
+  pat.age  = document.getElementById('ptAge').value  || '0';
+  cur = 0; ans = {};
+  show('qscreen');
+  renderQ();
+};
+
+document.getElementById('backBtn').onclick = function() {
+  if (cur > 0) { cur--; renderQ(); }
+};
+
+document.getElementById('nextBtn').onclick = function() {
+  if (cur < Qs.length - 1) { cur++; renderQ(); }
+  else { showResult(); }
+};
+
+document.getElementById('printBtn').onclick = function() { window.print(); };
+document.getElementById('resetBtn').onclick = function() { location.reload(); };
+
+// ------- 問題定義 -------
+var Qs = [
+  {id:1, label:'Q1　年齢',          text:'あなたのお年齢を教えてください。',                              sub:'（2歳までの誤差は正答）',                                            type:'text',    maxPt:1},
+  {id:2, label:'Q2　日時の見当識',   text:'今日は何年、何月、何日、何曜日ですか？',                         sub:'年・月・日・曜日 それぞれ1点（合計4点）',                              type:'date',    maxPt:4},
+  {id:3, label:'Q3　場所の見当識',   text:'私たちが今いる場所はどこですか？',                              sub:'答えられなければ「病院・診療所・家・施設」から選ばせる',                 type:'opts',    maxPt:2,
+    opts:[{t:'自分から正しく答えられた',p:2},{t:'選択肢から正しく選べた',p:1},{t:'答えられなかった・誤答',p:0}]},
+  {id:4, label:'Q4　3語の記銘',      text:'これから言う3つの言葉を言ってみてください。\nあとでまた聞きますのでよく覚えておいてください。', sub:'「桜」「猫」「電車」　各1点（合計3点）',                      type:'memo',    maxPt:3},
+  {id:5, label:'Q5　計算',           text:'100から7を引いてください。\nそこからまた7を引いてください。',    sub:'100−7＝？（93）　93−7＝？（86）',                                   type:'calc',    maxPt:2},
+  {id:6, label:'Q6　数字の逆唱',     text:'私が言う数字を逆から言ってください。',                          sub:'「6−8−2」→正解「2−8−6」　「3−5−2−9」→正解「9−2−5−3」',           type:'reverse', maxPt:2},
+  {id:7, label:'Q7　3語の遅延再生',  text:'先ほど覚えた3つの言葉を言ってください。',                       sub:'ヒントなし2点・ヒントあり1点・再生不能0点',                            type:'recall',  maxPt:6},
+  {id:8, label:'Q8　視覚的記銘',     text:'（5品目を見せて隠した後）\n何があったか言ってください。',         sub:'',              type:'items',   maxPt:5},
+  {id:9, label:'Q9　言語流暢性',     text:'野菜の名前をできるだけ多く言ってください。',                     sub:'0個=0点 / 1〜4個=1点 / 5個=2点 / 6個=3点 / 7個=4点 / 8個以上=5点',   type:'veggie',  maxPt:5}
+];
+
+
+
+// ------- 音声読み上げ＋マイク自動起動 -------
+var _jaVoice = null;
+
+function getJaVoice() {
+  if (_jaVoice) return _jaVoice;
+  var voices = window.speechSynthesis.getVoices();
+  // 優先順位：Googleの日本語 → Kyoko（Apple） → ja-JPの任意
+  var pref = ['Google 日本語', 'Google Japanese', 'Kyoko', 'Otoya', 'O-ren'];
+  for (var i = 0; i < pref.length; i++) {
+    var found = voices.find(function(v) { return v.name.indexOf(pref[i]) !== -1; });
+    if (found) { _jaVoice = found; return found; }
+  }
+  // フォールバック：lang が ja- で始まるもの
+  var jaAny = voices.find(function(v) { return v.lang.indexOf('ja') === 0; });
+  _jaVoice = jaAny || null;
+  return _jaVoice;
+}
+
+// voiceschanged 後にキャッシュをリセット
+if (window.speechSynthesis) {
+  window.speechSynthesis.addEventListener('voiceschanged', function() { _jaVoice = null; });
+}
+
+function speakAndListen(text, inputId, onFinal) {
+  window.speechSynthesis.cancel();
+  var msg = new SpeechSynthesisUtterance();
+  msg.text = text;
+  msg.lang = 'ja-JP';
+  msg.rate = 0.88;      // 少しゆっくり（高齢者向け）
+  msg.pitch = 1.05;     // わずかに高め → 硬さを緩和
+  msg.volume = 1.0;
+  var v = getJaVoice();
+  if (v) msg.voice = v;
+  msg.onend = null;
+  window.speechSynthesis.speak(msg);
+}
+
+// Q2専用：漢字だと「なんとし」「なんにち」と読む場合があるためひらがなで渡す
+var Q2_SPEAK_TEXT = 'きょうは　なんねん、なんがつ、なんにち、なんようびですか？';
+
+// 数字列をゆっくり読む（数字の間に間を入れる）
+function speakSequence(texts, delay, onDone) {
+  window.speechSynthesis.cancel();
+  var index = 0;
+  function next() {
+    if (index >= texts.length) { if (onDone) onDone(); return; }
+    var msg = new SpeechSynthesisUtterance();
+    msg.text = texts[index];
+    msg.lang = 'ja-JP';
+    msg.rate = 0.70;   // 数字はさらにゆっくり
+    msg.pitch = 1.05;
+    msg.volume = 1.0;
+    var v = getJaVoice();
+    if (v) msg.voice = v;
+    index++;
+    msg.onend = function() { setTimeout(next, delay || 400); };
+    window.speechSynthesis.speak(msg);
+  }
+  next();
+}
+
+function triggerSpeak(q) {
+  if (q.type === 'items') {
+    setTimeout(function() {
+      window.speechSynthesis.cancel();
+      var msg = new SpeechSynthesisUtterance();
+      msg.text = 'これから　５つの　しなものの　どうがを　さいせいします。　あとで　ききますので　どんな　しなものが　あったか　こたえてください。';
+      msg.lang = 'ja-JP';
+      msg.rate = 0.88;
+      msg.pitch = 1.05;
+      msg.volume = 1.0;
+      var v = getJaVoice();
+      if (v) msg.voice = v;
+      msg.onend = function() {
+        // 読み上げ終了後1秒待って動画を自動再生
+        setTimeout(function() {
+          var vid = document.querySelector('#qarea video');
+          if (vid) {
+            var p = vid.play();
+            if (p && p.catch) {
+              p.catch(function() {
+                // iPadの自動再生ブロック対策：タップで再生できるようボタンを表示
+                var tapBtn = document.createElement('button');
+                tapBtn.type = 'button';
+                tapBtn.className = 'big-btn';
+                tapBtn.textContent = '▶ 動画を再生';
+                tapBtn.style.cssText = 'display:block;margin:.8rem auto 0';
+                tapBtn.addEventListener('click', function() {
+                  vid.play();
+                  tapBtn.remove();
+                });
+                vid.parentNode.insertBefore(tapBtn, vid.nextSibling);
+              });
+            }
+          }
+        }, 1000);
+      };
+      window.speechSynthesis.speak(msg);
+    }, 800);
+    return;
+  }
+
+  if (q.id === 6) {
+    // 逆唱：「私が言う数字を逆から言ってください」→ 間 → 「ろく はち に」→ 間 → 「さん ご に きゅう」
+    setTimeout(function() {
+      var intro = new SpeechSynthesisUtterance();
+      intro.text = 'わたしがいう　すうじを、　さかさまに　いってください。';
+      intro.lang = 'ja-JP';
+      intro.rate = 0.88;
+      intro.pitch = 1.05;
+      intro.volume = 1.0;
+      var v = getJaVoice();
+      if (v) intro.voice = v;
+      intro.onend = function() {
+        // 1秒待って3桁を読む
+        setTimeout(function() {
+          speakSequence(['ろく', 'はち', 'に'], 500, function() {
+            // 3桁終了後2秒待って4桁
+            setTimeout(function() {
+              speakSequence(['さん', 'ご', 'に', 'きゅう'], 500);
+            }, 4000);
+          });
+        }, 1000);
+      };
+      window.speechSynthesis.speak(intro);
+    }, 800);
+    return;
+  }
+
+  var text;
+  if (q.type === 'memo') {
+    text = 'これから言う　みっつの　ことばを　いってみてください。　あとでまた　ききますので　よく　おぼえておいてください。　さくら。　ねこ。　でんしゃ。';
+  } else if (q.id === 2) {
+    text = Q2_SPEAK_TEXT;
+  } else {
+    text = q.text;
+  }
+  setTimeout(function() {
+    speakAndListen(text, null, null);
+  }, 800);
+}
+
+// ------- 問題描画 -------
+function renderQ() {
+  var q = Qs[cur];
+  var pct = Math.round((cur / Qs.length) * 100);
+  document.getElementById('prog').style.width = pct + '%';
+  document.getElementById('progLabel').textContent = (cur + 1) + ' / ' + Qs.length;
+  document.getElementById('qtag').textContent = q.label;
+  document.getElementById('qtext').textContent = q.text;
+  document.getElementById('qsub').textContent = q.sub || '';
+  document.getElementById('backBtn').disabled = (cur === 0);
+  document.getElementById('nextBtn').disabled = false;
+  var area = document.getElementById('qarea');
+  area.innerHTML = '';
+
+  // 描画後に自動読み上げ（items以外）
+  triggerSpeak(q);
+
+  // === 記銘（読み上げ＋採点）===
+  if (q.type === 'memo') {
+    // 単語表示（読み上げ中は大きく表示、2秒後にホワイトアウト）
+    var d = document.createElement('div');
+    d.className = 'memo-words';
+    d.textContent = '桜　猫　電車';
+    d.style.cssText = 'transition:opacity 1s ease;';
+    area.appendChild(d);
+    // 音声読み上げ時間（約6秒）＋2秒後にホワイトアウト
+    setTimeout(function() {
+      d.style.opacity = '0';
+      setTimeout(function() {
+        d.style.visibility = 'hidden';
+      }, 1000);
+    }, 8000);
+
+    if (!ans[q.id]) ans[q.id] = {w:{桜:false,猫:false,電車:false}, score:0, detail:''};
+
+    // 採点エリア（患者に見えにくい薄いグレー）
+    var memoNote = document.createElement('div');
+    memoNote.className = 'hint-box';
+    memoNote.style.cssText = 'margin-top:1rem;opacity:0.35';
+    memoNote.textContent = '読み上げた後、患者が正しく繰り返せた語に✓をつけてください。';
+    area.appendChild(memoNote);
+    var memoGrid = document.createElement('div');
+    memoGrid.style.cssText = 'display:flex;gap:10px;margin-top:.6rem;flex-wrap:wrap;opacity:0.35';
+    ['桜','猫','電車'].forEach(function(word) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      var checked = ans[4].w[word];
+      b.className = 'opt-btn' + (checked ? ' sel' : '');
+      b.style.cssText = 'width:auto;padding:10px 18px;font-size:16px;font-weight:700;color:#bbb;border-color:#ddd';
+      b.textContent = '「' + word + '」' + (checked ? ' ✓' : '');
+      b.addEventListener('click', function() {
+        // クリック時は採点エリアを少し見やすくする
+        memoNote.style.opacity = '0.9';
+        memoGrid.style.opacity = '0.9';
+        ans[4].w[word] = !ans[4].w[word];
+        var sc = 0, det = [];
+        ['桜','猫','電車'].forEach(function(w) { if(ans[4].w[w]){sc++;det.push(w);} });
+        ans[4].score = sc;
+        ans[4].detail = det.length ? det.join('・') + ' 正答' : '全語不正答';
+        b.className = 'opt-btn' + (ans[4].w[word] ? ' sel' : '');
+        b.textContent = '「' + word + '」' + (ans[4].w[word] ? ' ✓' : '');
+      });
+      memoGrid.appendChild(b);
+    });
+    area.appendChild(memoGrid);
+    return;
+  }
+
+  // === 年齢 ===
+  if (q.type === 'text') {
+    if (!ans[q.id]) ans[q.id] = {raw:'', score:0, detail:''};
+    var ageHint = document.createElement('div');
+    ageHint.className = 'hint-box';
+    var age = parseInt(pat.age) || 0;
+    ageHint.textContent = '正解範囲：' + (age - 2) + '〜' + (age + 2) + '歳（登録年齢：' + age + '歳）';
+    area.appendChild(ageHint);
+    var ageBtns = [];
+    var curVal1 = ans[q.id].score;
+    var btnOk1 = document.createElement('button');
+    btnOk1.type = 'button';
+    btnOk1.className = 'opt-btn' + (curVal1 === 1 ? ' sel' : '');
+    btnOk1.style.cssText = 'width:auto;padding:10px 20px;font-size:15px;margin-bottom:0';
+    btnOk1.textContent = '正解（1点）';
+    var btnNg1 = document.createElement('button');
+    btnNg1.type = 'button';
+    btnNg1.className = 'opt-btn' + (curVal1 === 0 && ans[q.id].detail ? ' sel' : '');
+    btnNg1.style.cssText = 'width:auto;padding:10px 20px;font-size:15px;margin-bottom:0';
+    btnNg1.textContent = '不正解（0点）';
+    var btnWrap1 = document.createElement('div');
+    btnWrap1.style.cssText = 'display:flex;gap:8px;margin-top:.5rem';
+    btnOk1.addEventListener('click', function() {
+      ans[q.id] = {raw:'correct', score:1, detail:'正解'};
+      btnOk1.classList.add('sel'); btnNg1.classList.remove('sel');
+    });
+    btnNg1.addEventListener('click', function() {
+      ans[q.id] = {raw:'incorrect', score:0, detail:'不正解'};
+      btnNg1.classList.add('sel'); btnOk1.classList.remove('sel');
+    });
+    btnWrap1.appendChild(btnOk1); btnWrap1.appendChild(btnNg1);
+    area.appendChild(btnWrap1);
+    return;
+  }
+
+  // === 日時 ===
+  if (q.type === 'date') {
+    if (!ans[q.id]) ans[q.id] = {items:{year:null,month:null,day:null,dow:null}, score:0, detail:''};
+    var dateFields = [
+      {k:'year',  lbl:'今年は何年？',   correct:String(YEAR), unit:'年'},
+      {k:'month', lbl:'今月は何月？',   correct:String(MONTH),unit:'月'},
+      {k:'day',   lbl:'今日は何日？',   correct:String(DAY),  unit:'日'},
+      {k:'dow',   lbl:'今日は何曜日？', correct:WD,           unit:'曜日'}
+    ];
+    var dateGrid = document.createElement('div');
+    dateGrid.style.cssText = 'display:grid;gap:12px;margin-bottom:1rem';
+
+    function updateDateScore() {
+      var sc = 0, det = [];
+      dateFields.forEach(function(f) {
+        var v = ans[2].items[f.k];
+        if (v === true) { sc++; det.push(f.unit + '○'); }
+        else if (v === false) { det.push(f.unit + '×'); }
+        else { det.push(f.unit + '―'); }
+      });
+      ans[2].score = sc;
+      ans[2].detail = det.join(' ');
+    }
+
+    dateFields.forEach(function(f) {
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap';
+      var lbl = document.createElement('span');
+      lbl.style.cssText = 'width:130px;font-size:13px;color:#888;flex-shrink:0';
+      lbl.textContent = f.lbl;
+      var hint = document.createElement('span');
+      hint.style.cssText = 'font-size:11px;color:#bbb;margin-right:4px';
+      hint.textContent = '（正解：' + f.correct + f.unit + '）';
+      var btnWrap = document.createElement('div');
+      btnWrap.style.cssText = 'display:flex;gap:6px';
+      var curVal = ans[2].items[f.k];
+      var btnOk = document.createElement('button');
+      btnOk.type = 'button';
+      btnOk.className = 'opt-btn' + (curVal === true ? ' sel' : '');
+      btnOk.style.cssText = 'width:auto;padding:8px 16px;font-size:14px;margin-bottom:0';
+      btnOk.textContent = '正解（1点）';
+      var btnNg = document.createElement('button');
+      btnNg.type = 'button';
+      btnNg.className = 'opt-btn' + (curVal === false ? ' sel' : '');
+      btnNg.style.cssText = 'width:auto;padding:8px 16px;font-size:14px;margin-bottom:0';
+      btnNg.textContent = '不正解（0点）';
+      btnOk.addEventListener('click', function() {
+        ans[2].items[f.k] = true;
+        updateDateScore();
+        btnOk.classList.add('sel'); btnNg.classList.remove('sel');
+      });
+      btnNg.addEventListener('click', function() {
+        ans[2].items[f.k] = false;
+        updateDateScore();
+        btnNg.classList.add('sel'); btnOk.classList.remove('sel');
+      });
+      btnWrap.appendChild(btnOk); btnWrap.appendChild(btnNg);
+      row.appendChild(lbl); row.appendChild(hint); row.appendChild(btnWrap);
+      dateGrid.appendChild(row);
+    });
+    area.appendChild(dateGrid);
+    return;
+  }
+
+  // === 選択肢 ===
+  if (q.type === 'opts') {
+    var optBtns = [];
+    q.opts.forEach(function(o, i) {
+      var b = document.createElement('button');
+      b.className = 'opt-btn' + (ans[q.id] && ans[q.id].idx === i ? ' sel' : '');
+      b.type = 'button';
+      b.textContent = o.t + '（' + o.p + '点）';
+      b.addEventListener('click', function() {
+        ans[q.id] = {idx:i, score:o.p, detail:o.t};
+        optBtns.forEach(function(btn) { btn.classList.remove('sel'); });
+        b.classList.add('sel');
+      });
+      optBtns.push(b);
+      area.appendChild(b);
+    });
+    return;
+  }
+
+  // === 計算 ===
+  if (q.type === 'calc') {
+    if (!ans[q.id]) ans[q.id] = {items:{a:null,b:null}, score:0, detail:''};
+    var calcPairs = [
+      {k:'a', lbl:'100 − 7 ＝', hint:'（正解：93）'},
+      {k:'b', lbl:'93 − 7 ＝',  hint:'（正解：86）'}
+    ];
+    var calcGrid = document.createElement('div');
+    calcGrid.style.cssText = 'display:grid;gap:12px;margin-bottom:1rem';
+
+    function updateCalcScore() {
+      var sc = 0, det = [];
+      calcPairs.forEach(function(p) {
+        var v = ans[5].items[p.k];
+        if (v === true) { sc++; det.push(p.lbl + '○'); }
+        else if (v === false) { det.push(p.lbl + '×'); }
+        else { det.push(p.lbl + '―'); }
+      });
+      ans[5].score = sc;
+      ans[5].detail = det.join(' ');
+    }
+
+    calcPairs.forEach(function(p) {
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap';
+      var lbl = document.createElement('span');
+      lbl.style.cssText = 'width:110px;font-size:14px;color:#888;flex-shrink:0';
+      lbl.textContent = p.lbl;
+      var hint = document.createElement('span');
+      hint.style.cssText = 'font-size:11px;color:#bbb;margin-right:4px';
+      hint.textContent = p.hint;
+      var btnWrap = document.createElement('div');
+      btnWrap.style.cssText = 'display:flex;gap:6px';
+      var curVal = ans[5].items[p.k];
+      var btnOk = document.createElement('button');
+      btnOk.type = 'button';
+      btnOk.className = 'opt-btn' + (curVal === true ? ' sel' : '');
+      btnOk.style.cssText = 'width:auto;padding:8px 16px;font-size:14px;margin-bottom:0';
+      btnOk.textContent = '正解（1点）';
+      var btnNg = document.createElement('button');
+      btnNg.type = 'button';
+      btnNg.className = 'opt-btn' + (curVal === false ? ' sel' : '');
+      btnNg.style.cssText = 'width:auto;padding:8px 16px;font-size:14px;margin-bottom:0';
+      btnNg.textContent = '不正解（0点）';
+      btnOk.addEventListener('click', function() {
+        ans[5].items[p.k] = true;
+        updateCalcScore();
+        btnOk.classList.add('sel'); btnNg.classList.remove('sel');
+      });
+      btnNg.addEventListener('click', function() {
+        ans[5].items[p.k] = false;
+        updateCalcScore();
+        btnNg.classList.add('sel'); btnOk.classList.remove('sel');
+      });
+      btnWrap.appendChild(btnOk); btnWrap.appendChild(btnNg);
+      row.appendChild(lbl); row.appendChild(hint); row.appendChild(btnWrap);
+      calcGrid.appendChild(row);
+    });
+    area.appendChild(calcGrid);
+    return;
+  }
+
+  // === 逆唱 ===
+  if (q.type === 'reverse') {
+    if (!ans[q.id]) ans[q.id] = {raw:{a:'',b:''}, score:0, detail:''};
+    var note = document.createElement('div');
+    note.className = 'hint-box';
+    note.textContent = '「6−8−2」の採点後、自動的に「3−5−2−9」を読み上げます。';
+    area.appendChild(note);
+
+    var revPairs = [
+      {k:'a', lbl:'「6−8−2」の逆唱',    hint:'（正解：2−8−6）'},
+      {k:'b', lbl:'「3−5−2−9」の逆唱',  hint:'（正解：9−2−5−3）'}
+    ];
+    var revGrid = document.createElement('div');
+    revGrid.style.cssText = 'display:grid;gap:16px';
+
+    // 4桁読み上げ関数（aの採点後に呼ぶ）
+    function speak4digit() {
+      setTimeout(function() {
+        speakSequence(['さん', 'ご', 'に', 'きゅう'], 500);
+      }, 800);
+    }
+
+    function updateRevScore() {
+      var sa = ans[6].raw.a === '1' ? 1 : 0;
+      var sb = ans[6].raw.b === '1' ? 1 : 0;
+      ans[6].score = sa + sb;
+      ans[6].detail = '3桁:' + (sa?'○':'×') + ' 4桁:' + (sb?'○':'×');
+    }
+
+    revPairs.forEach(function(p) {
+      var row = document.createElement('div');
+      row.style.cssText = 'display:grid;gap:8px';
+      var topRow = document.createElement('div');
+      topRow.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap';
+      var lbl = document.createElement('span');
+      lbl.style.cssText = 'font-size:19px;font-weight:700;color:#333;flex-shrink:0';
+      lbl.textContent = p.lbl;
+      var hint = document.createElement('span');
+      hint.style.cssText = 'font-size:14px;color:#bbb';
+      hint.textContent = p.hint;
+      topRow.appendChild(lbl); topRow.appendChild(hint);
+      var btnWrap = document.createElement('div');
+      btnWrap.style.cssText = 'display:flex;gap:10px';
+      var curVal = ans[6].raw[p.k];
+      var btnOk = document.createElement('button');
+      btnOk.type = 'button';
+      btnOk.className = 'opt-btn' + (curVal === '1' ? ' sel' : '');
+      btnOk.style.cssText = 'width:auto;padding:14px 28px;font-size:18px;margin-bottom:0';
+      btnOk.textContent = '正解（1点）';
+      var btnNg = document.createElement('button');
+      btnNg.type = 'button';
+      btnNg.className = 'opt-btn' + (curVal === '0' ? ' sel' : '');
+      btnNg.style.cssText = 'width:auto;padding:14px 28px;font-size:18px;margin-bottom:0';
+      btnNg.textContent = '不正解（0点）';
+      btnOk.addEventListener('click', function() {
+        ans[6].raw[p.k] = '1';
+        updateRevScore();
+        btnOk.classList.add('sel'); btnNg.classList.remove('sel');
+        if (p.k === 'a') speak4digit();
+      });
+      btnNg.addEventListener('click', function() {
+        ans[6].raw[p.k] = '0';
+        updateRevScore();
+        btnNg.classList.add('sel'); btnOk.classList.remove('sel');
+        if (p.k === 'a') speak4digit();
+      });
+      btnWrap.appendChild(btnOk); btnWrap.appendChild(btnNg);
+      row.appendChild(topRow); row.appendChild(btnWrap);
+      revGrid.appendChild(row);
+    });
+    area.appendChild(revGrid);
+    return;
+  }
+
+  // === 遅延再生 ===
+  if (q.type === 'recall') {
+    var hints = ['「日本の花」は？','「動物」は？','「乗り物」は？'];
+    if (!ans[q.id]) ans[q.id] = {w:{桜:'none',猫:'none',電車:'none'}, score:0};
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'display:grid;gap:12px';
+    WORDS.forEach(function(word, i) {
+      var card = document.createElement('div');
+      card.style.cssText = 'border:1.5px solid #eee;border-radius:10px;padding:12px 14px';
+      var tit = document.createElement('div');
+      tit.style.cssText = 'font-size:18px;font-weight:700;margin-bottom:8px;color:#ccc';
+      tit.textContent = '「' + word + '」';
+      var hintTexts = ['にほんの　はなは？', 'どうぶつは？', 'のりものは？'];
+      var modes = [
+        {v:'free', t:'ヒントなし（2点）',               speak: null},
+        {v:'hint', t:'ヒントあり（1点）　' + hints[i],  speak: hintTexts[i]},
+        {v:'none', t:'再生不能（0点）',                 speak: null}
+      ];
+      var btnRow = document.createElement('div');
+      btnRow.style.cssText = 'display:flex;gap:7px;flex-wrap:wrap';
+      modes.forEach(function(m) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'opt-btn' + (ans[7].w[word] === m.v ? ' sel' : '');
+        b.style.cssText = 'width:auto;padding:8px 12px;font-size:13px';
+        b.textContent = m.t;
+        b.addEventListener('click', function() {
+          ans[7].w[word] = m.v;
+          calcRecall();
+          btnRow.querySelectorAll('button').forEach(function(btn) { btn.classList.remove('sel'); });
+          b.classList.add('sel');
+          if (m.speak) speakAndListen(m.speak, null, null);
+        });
+        btnRow.appendChild(b);
+      });
+      card.appendChild(tit); card.appendChild(btnRow);
+      wrap.appendChild(card);
+    });
+    area.appendChild(wrap);
+    return;
+  }
+
+  // === 視覚的記銘 ===
+  if (q.type === 'items') {
+    if (!ans[q.id]) ans[q.id] = {count:0, score:0, detail:'0品目正解'};
+
+    // 動画プレーヤー
+    var videoWrap = document.createElement('div');
+    videoWrap.style.cssText = 'margin-bottom:1rem;text-align:center';
+    var vid = document.createElement('video');
+    vid.src = 'items_video.mp4';
+    vid.controls = true;
+    vid.setAttribute('playsinline', '');
+    vid.setAttribute('webkit-playsinline', '');
+    vid.style.cssText = 'width:100%;max-width:720px;border-radius:12px';
+    vid.onended = function() {
+      setTimeout(function() {
+        vid.style.display = 'none';
+        var black = document.createElement('div');
+        black.style.cssText = 'width:100%;max-width:720px;height:405px;background:#000;border-radius:10px;display:inline-block';
+        videoWrap.appendChild(black);
+        speakAndListen('何があったか　こたえてください。', null, null);
+      }, 5000);
+    };
+    videoWrap.appendChild(vid);
+
+    var note2 = document.createElement('div');
+    note2.className = 'hint-box';
+    note2.textContent = '動画を再生して品目を見せた後、正解した数を選んでください。';
+    var lbl2 = document.createElement('div');
+    lbl2.style.cssText = 'font-size:14px;color:#888;margin:.6rem 0 .3rem';
+    lbl2.textContent = '正解した品目数：';
+    var grid2 = document.createElement('div');
+    grid2.className = 'num-grid';
+    var numBtns2 = [];
+    [0,1,2,3,4,5].forEach(function(n) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'num-btn' + (ans[q.id].count === n ? ' sel' : '');
+      b.textContent = String(n);
+      b.addEventListener('click', function() {
+        ans[8] = {count:n, score:n, detail:n + '品目正解'};
+        numBtns2.forEach(function(btn) { btn.classList.remove('sel'); });
+        b.classList.add('sel');
+      });
+      numBtns2.push(b);
+      grid2.appendChild(b);
+    });
+    area.appendChild(videoWrap); area.appendChild(note2); area.appendChild(lbl2); area.appendChild(grid2);
+    return;
+  }
+
+  // === 言語流暢性 ===
+  if (q.type === 'veggie') {
+    if (!ans[q.id]) ans[q.id] = {count:0, score:0, list:'', detail:'0個'};
+    var note3 = document.createElement('div');
+    note3.className = 'hint-box';
+    note3.textContent = '60秒以内に言えた野菜を記録し、個数を選択してください。';
+    var inp2 = document.createElement('input');
+    inp2.className = 'inp'; inp2.id = 'vegList';
+    inp2.placeholder = '例：キャベツ　にんじん　大根…';
+    inp2.value = ans[q.id].list;
+    inp2.addEventListener('input', function() { if (ans[9]) ans[9].list = inp2.value; });
+    var lbl3 = document.createElement('div');
+    lbl3.style.cssText = 'font-size:17px;color:#888;margin:.8rem 0 .4rem';
+    lbl3.textContent = '個数：';
+    var grid3 = document.createElement('div');
+    grid3.className = 'num-grid';
+    var numBtns3 = [];
+    [0,1,2,3,4,5,6,7,8,9,10].forEach(function(n) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'num-btn' + (ans[q.id].count === n ? ' sel' : '');
+      b.textContent = String(n);
+      b.addEventListener('click', function() {
+        var sc = n===0?0:n<=4?1:n===5?2:n===6?3:n===7?4:5;
+        var list = document.getElementById('vegList') ? document.getElementById('vegList').value : '';
+        ans[9] = {count:n, score:sc, list:list, detail:n + '個（' + list + '）'};
+        numBtns3.forEach(function(btn) { btn.classList.remove('sel'); });
+        b.classList.add('sel');
+      });
+      numBtns3.push(b);
+      grid3.appendChild(b);
+    });
+    area.appendChild(note3); area.appendChild(inp2);
+    area.appendChild(lbl3); area.appendChild(grid3);
+    return;
+  }
+}
+
+// ------- 採点関数 -------
+function scoreText(v) {
+  var n = parseInt(v);
+  var age = parseInt(pat.age) || 0;
+  var sc = isNaN(n) ? 0 : (Math.abs(n - age) <= 2 ? 1 : 0);
+  ans[1] = {raw:v, score:sc, detail:'回答：' + v};
+}
+
+function calcDate() {
+  // ボタン方式では採点はリアルタイムで更新済み。何もしない。
+  if (!ans[2]) ans[2] = {items:{year:null,month:null,day:null,dow:null}, score:0, detail:''};
+}
+
+function calcCalc() {
+  // ボタン方式では採点はリアルタイムで更新済み。何もしない。
+  if (!ans[5]) ans[5] = {items:{a:null,b:null}, score:0, detail:''};
+}
+
+function calcRev() {
+  var a = ans[6];
+  var ra = a.raw.a, rb = a.raw.b;
+  a.score = (ra === '1' ? 1 : 0) + (rb === '1' ? 1 : 0);
+  a.detail = '3桁:' + (ra==='1'?'○':'×') + ' 4桁:' + (rb==='1'?'○':'×');
+}
+
+function calcRecall() {
+  var sc = 0;
+  WORDS.forEach(function(w) {
+    var m = ans[7].w[w];
+    if (m === 'free') sc += 2;
+    else if (m === 'hint') sc += 1;
+  });
+  ans[7].score = sc;
+}
+
+// ------- 結果表示 -------
+function showResult() {
+  calcDate(); calcCalc(); calcRev(); calcRecall();
+  var total = 0, rows = [];
+  Qs.forEach(function(q) {
+    if (q.type === 'memo') {
+      var a4 = ans[q.id] || {};
+      var sc4 = a4.score || 0;
+      var det4 = a4.detail || '未記録';
+      total += sc4;
+      rows.push({label:q.label, text:q.text.split('\n')[0], sc:sc4, max:q.maxPt, detail:det4});
+      return;
+    }
+    var a = ans[q.id] || {};
+    var sc = a.score || 0;
+    var detail = a.detail || '';
+    if (q.id === 7) {
+      detail = WORDS.map(function(w) {
+        var m = ans[7].w ? ans[7].w[w] : 'none';
+        return w + ':' + (m==='free'?'2点':m==='hint'?'1点':'0点');
+      }).join(' ');
+    }
+    total += sc;
+    rows.push({label:q.label, text:q.text.split('\n')[0], sc:sc, max:q.maxPt, detail:detail});
+  });
+
+  var level = total >= 25 ? '正常範囲' : total >= 21 ? '境界域' : total >= 11 ? '認知症疑い（中等度）' : '認知症疑い（高度）';
+  document.getElementById('scoreNum').textContent = total;
+  document.getElementById('scoreLevel').textContent = level + '　（カットオフ：20/21点）';
+
+  var tb = document.getElementById('resTbody');
+  tb.innerHTML = '';
+  rows.forEach(function(r) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td style="font-size:11px;color:#aaa;white-space:nowrap">' + r.label + '</td>'
+      + '<td style="font-size:13px">' + r.text + '<br><span style="font-size:11px;color:#aaa">' + r.detail + '</span></td>'
+      + '<td style="text-align:right;font-weight:700;white-space:nowrap">' + r.sc + '/' + r.max + '</td>';
+    tb.appendChild(tr);
+  });
+
+  buildPrint(total, level, rows);
+  show('res');
+}
+
+function buildPrint(total, level, rows) {
+  var d = YEAR + '年' + MONTH + '月' + DAY + '日（' + WD + '曜日）';
+  document.getElementById('pDate').textContent = d;
+  document.getElementById('pMeta').innerHTML =
+    '<span>氏名：' + pat.name + '</span>'
+    + '<span>生年月日：' + pat.dob + '</span>'
+    + '<span>年齢：' + pat.age + '歳</span>'
+    + '<span>実施日：' + d + '</span>';
+  document.getElementById('pScore').textContent = '合計 ' + total + ' / 30点';
+  document.getElementById('pLevel').textContent = level;
+  document.getElementById('pTotal').textContent = total + ' / 30';
+  var pb = document.getElementById('pTbody');
+  pb.innerHTML = '';
+  rows.forEach(function(r) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + r.label + '</td><td>' + r.text + '</td>'
+      + '<td style="font-size:11px">' + r.detail + '</td>'
+      + '<td style="text-align:right">' + r.sc + '/' + r.max + '</td>';
+    pb.appendChild(tr);
+  });
+}
+</script>
+</body>
+</html>
