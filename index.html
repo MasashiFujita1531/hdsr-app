@@ -372,10 +372,29 @@ function triggerSpeak(q) {
     return;
   }
 
-  var text;
   if (q.type === 'memo') {
-    text = 'これから言う　みっつの　ことばを　いってみてください。　あとでまた　ききますので　よく　おぼえておいてください。　さくら。　ねこ。　でんしゃ。';
-  } else if (q.id === 2) {
+    setTimeout(function() {
+      var intro = new SpeechSynthesisUtterance();
+      intro.text = 'これから言う　みっつの　ことばを　いってみてください。　あとでまた　ききますので　よく　おぼえておいてください。';
+      intro.lang = 'ja-JP';
+      intro.rate = 0.88;
+      intro.pitch = 1.05;
+      intro.volume = 1.0;
+      var v0 = getJaVoice();
+      if (v0) intro.voice = v0;
+      intro.onend = function() {
+        // イントロ終了後、少し間を置いて単語をゆっくり・間を空けて読み上げ
+        setTimeout(function() {
+          speakSequence(['さくら', 'ねこ', 'でんしゃ'], 700);
+        }, 600);
+      };
+      window.speechSynthesis.speak(intro);
+    }, 800);
+    return;
+  }
+
+  var text;
+  if (q.id === 2) {
     text = Q2_SPEAK_TEXT;
   } else {
     text = q.text;
