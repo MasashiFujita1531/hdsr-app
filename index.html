@@ -285,7 +285,7 @@ function speakAndListen(text, inputId, onFinal) {
 }
 
 // Q2専用：漢字だと「なんとし」「なんにち」と読む場合があるためひらがなで渡す
-var Q2_SPEAK_TEXT = 'きょうは　なんねん、なんがつ、なんにち、なんようびですか？';
+var Q2_SPEAK_TEXT = 'きょうわ　なんねん、なんがつ、なんにち、なんようびですか？';
 
 // 数字列をゆっくり読む（数字の間に間を入れる）
 function speakSequence(texts, delay, onDone) {
@@ -742,7 +742,7 @@ function renderQ() {
       var tit = document.createElement('div');
       tit.style.cssText = 'font-size:18px;font-weight:700;margin-bottom:8px;color:#ccc';
       tit.textContent = '「' + word + '」';
-      var hintTexts = ['にほんの　はなは？', 'どうぶつは？', 'のりものは？'];
+      var hintTexts = ['にほんの　はなわ？', 'どうぶつわ？', 'のりものわ？'];
       var modes = [
         {v:'free', t:'ヒントなし（2点）',               speak: null},
         {v:'hint', t:'ヒントあり（1点）　' + hints[i],  speak: hintTexts[i]},
