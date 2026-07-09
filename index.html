@@ -67,9 +67,13 @@ select.inp{background:#fff;cursor:pointer}
 .num-btn.sel{background:#111;color:#fff;border-color:#111}
 
 @media print{
-  body{background:#fff}
+  @page{ margin:12mm; }
+  html,body{height:auto!important;min-height:0!important}
+  #app{padding:0!important;max-width:100%!important}
   #cover,#pat,#qscreen,#res{display:none!important}
   #printarea{display:block!important}
+  .ptbl{page-break-inside:avoid}
+  .pnote{page-break-inside:avoid}
 }
 #printarea{display:none;font-family:'Hiragino Sans','Meiryo',sans-serif;padding:24px;font-size:13px;max-width:700px;margin:0 auto}
 .pt{font-size:20px;font-weight:700;margin-bottom:3px}
