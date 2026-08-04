@@ -67,13 +67,9 @@ select.inp{background:#fff;cursor:pointer}
 .num-btn.sel{background:#111;color:#fff;border-color:#111}
 
 @media print{
-  @page{ margin:12mm; }
-  html,body{height:auto!important;min-height:0!important}
-  #app{padding:0!important;max-width:100%!important}
+  body{background:#fff}
   #cover,#pat,#qscreen,#res{display:none!important}
   #printarea{display:block!important}
-  .ptbl{page-break-inside:avoid}
-  .pnote{page-break-inside:avoid}
 }
 #printarea{display:none;font-family:'Hiragino Sans','Meiryo',sans-serif;padding:24px;font-size:13px;max-width:700px;margin:0 auto}
 .pt{font-size:20px;font-weight:700;margin-bottom:3px}
@@ -285,7 +281,7 @@ function speakAndListen(text, inputId, onFinal) {
 }
 
 // Q2専用：漢字だと「なんとし」「なんにち」と読む場合があるためひらがなで渡す
-var Q2_SPEAK_TEXT = 'きょうわ　なんねん、なんがつ、なんにち、なんようびですか？';
+var Q2_SPEAK_TEXT = 'きょうは　なんねん、なんがつ、なんにち、なんようびですか？';
 
 // 数字列をゆっくり読む（数字の間に間を入れる）
 function speakSequence(texts, delay, onDone) {
@@ -376,29 +372,10 @@ function triggerSpeak(q) {
     return;
   }
 
-  if (q.type === 'memo') {
-    setTimeout(function() {
-      var intro = new SpeechSynthesisUtterance();
-      intro.text = 'これから言う　みっつの　ことばを　いってみてください。　あとでまた　ききますので　よく　おぼえておいてください。';
-      intro.lang = 'ja-JP';
-      intro.rate = 0.88;
-      intro.pitch = 1.05;
-      intro.volume = 1.0;
-      var v0 = getJaVoice();
-      if (v0) intro.voice = v0;
-      intro.onend = function() {
-        // イントロ終了後、少し間を置いて単語をゆっくり・間を空けて読み上げ
-        setTimeout(function() {
-          speakSequence(['さくら', 'ねこ', 'でんしゃ'], 700);
-        }, 600);
-      };
-      window.speechSynthesis.speak(intro);
-    }, 800);
-    return;
-  }
-
   var text;
-  if (q.id === 2) {
+  if (q.type === 'memo') {
+    text = 'これから言う　みっつの　ことばを　いってみてください。　あとでまた　ききますので　よく　おぼえておいてください。　さくら。　ねこ。　でんしゃ。';
+  } else if (q.id === 2) {
     text = Q2_SPEAK_TEXT;
   } else {
     text = q.text;
@@ -416,7 +393,20 @@ function renderQ() {
   document.getElementById('progLabel').textContent = (cur + 1) + ' / ' + Qs.length;
   document.getElementById('qtag').textContent = q.label;
   document.getElementById('qtext').textContent = q.text;
-  document.getElementById('qsub').textContent = q.sub || '';
+  (function() {
+    var qsubEl = document.getElementById('qsub');
+    var subHTML;
+    if (q.id === 4) {
+      subHTML = '<span style="color:#fafafa">「桜」「猫」「電車」</span>　各1点（合計3点）';
+    } else if (q.id === 5) {
+      subHTML = '100−7＝？<span style="color:#fafafa">（93）</span>　93−7＝？<span style="color:#fafafa">（86）</span>';
+    } else if (q.id === 6) {
+      subHTML = '「6−8−2」<span style="color:#fafafa">→正解「2−8−6」</span>　「3−5−2−9」<span style="color:#fafafa">→正解「9−2−5−3」</span>';
+    } else {
+      subHTML = (q.sub || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+    qsubEl.innerHTML = subHTML;
+  })();
   document.getElementById('backBtn').disabled = (cur === 0);
   document.getElementById('nextBtn').disabled = false;
   var area = document.getElementById('qarea');
@@ -541,9 +531,6 @@ function renderQ() {
       var lbl = document.createElement('span');
       lbl.style.cssText = 'width:130px;font-size:13px;color:#888;flex-shrink:0';
       lbl.textContent = f.lbl;
-      var hint = document.createElement('span');
-      hint.style.cssText = 'font-size:11px;color:#bbb;margin-right:4px';
-      hint.textContent = '（正解：' + f.correct + f.unit + '）';
       var btnWrap = document.createElement('div');
       btnWrap.style.cssText = 'display:flex;gap:6px';
       var curVal = ans[2].items[f.k];
@@ -568,7 +555,7 @@ function renderQ() {
         btnNg.classList.add('sel'); btnOk.classList.remove('sel');
       });
       btnWrap.appendChild(btnOk); btnWrap.appendChild(btnNg);
-      row.appendChild(lbl); row.appendChild(hint); row.appendChild(btnWrap);
+      row.appendChild(lbl); row.appendChild(btnWrap);
       dateGrid.appendChild(row);
     });
     area.appendChild(dateGrid);
@@ -623,7 +610,7 @@ function renderQ() {
       lbl.style.cssText = 'width:110px;font-size:14px;color:#888;flex-shrink:0';
       lbl.textContent = p.lbl;
       var hint = document.createElement('span');
-      hint.style.cssText = 'font-size:11px;color:#bbb;margin-right:4px';
+      hint.style.cssText = 'font-size:11px;color:#fafafa;margin-right:4px';
       hint.textContent = p.hint;
       var btnWrap = document.createElement('div');
       btnWrap.style.cssText = 'display:flex;gap:6px';
@@ -694,7 +681,7 @@ function renderQ() {
       lbl.style.cssText = 'font-size:19px;font-weight:700;color:#333;flex-shrink:0';
       lbl.textContent = p.lbl;
       var hint = document.createElement('span');
-      hint.style.cssText = 'font-size:14px;color:#bbb';
+      hint.style.cssText = 'font-size:14px;color:#fafafa';
       hint.textContent = p.hint;
       topRow.appendChild(lbl); topRow.appendChild(hint);
       var btnWrap = document.createElement('div');
@@ -740,9 +727,9 @@ function renderQ() {
       var card = document.createElement('div');
       card.style.cssText = 'border:1.5px solid #eee;border-radius:10px;padding:12px 14px';
       var tit = document.createElement('div');
-      tit.style.cssText = 'font-size:18px;font-weight:700;margin-bottom:8px;color:#ccc';
+      tit.style.cssText = 'font-size:18px;font-weight:700;margin-bottom:8px;color:#fafafa';
       tit.textContent = '「' + word + '」';
-      var hintTexts = ['にほんの　はなわ？', 'どうぶつわ？', 'のりものわ？'];
+      var hintTexts = ['にほんの　はなは？', 'どうぶつは？', 'のりものは？'];
       var modes = [
         {v:'free', t:'ヒントなし（2点）',               speak: null},
         {v:'hint', t:'ヒントあり（1点）　' + hints[i],  speak: hintTexts[i]},
