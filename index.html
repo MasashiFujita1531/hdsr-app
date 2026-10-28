@@ -2,15 +2,24 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- iPad：ホーム画面に追加すると全画面のアプリのように使える -->
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
-<meta name="apple-mobile-web-app-title" content="HDS-R">
 <meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="HDS-R">
+<meta name="format-detection" content="telephone=no">
 <title>長谷川式認知症スケール（HDS-R）</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Hiragino Sans','Meiryo',sans-serif;background:#f8f8f6;color:#111;min-height:100vh}
+body{font-family:'Hiragino Sans','Meiryo',sans-serif;background:#f8f8f6;color:#111;min-height:100vh;-webkit-text-size-adjust:100%}
+/* iPad：ボタンのダブルタップ拡大・タップ時の灰色の影を防ぐ */
+button,input,select{touch-action:manipulation;-webkit-tap-highlight-color:transparent;font-family:inherit}
+button{-webkit-appearance:none;appearance:none;color:inherit}
+.big-btn,.nav-btn.pri,.print-btn{color:#fff}
+.opt-btn.sel,.num-btn.sel{color:#fff}
+/* iPad：結果画面でボタンが画面下の操作バーに隠れないよう余白 */
+#app{padding-bottom:calc(2.5rem + env(safe-area-inset-bottom))}
 #app{max-width:900px;margin:0 auto;padding:2.5rem 2.5rem}
 .screen{display:none}.screen.active{display:block}
 h1{font-size:32px;font-weight:700;margin-bottom:.5rem}
@@ -44,7 +53,8 @@ select.inp{background:#fff;cursor:pointer}
 .nav-btn:disabled{opacity:.3;cursor:default}
 
 
-.memo-words{font-size:60px;font-weight:800;letter-spacing:.2em;text-align:center;margin:2.5rem 0;color:#111}
+/* Q4「桜・猫・電車」の表示サイズ（大きさは font-size の数字で調整） */
+.memo-words{font-size:clamp(80px,18vw,150px);font-weight:800;letter-spacing:.1em;text-align:center;margin:1.5rem 0;color:#111;line-height:1.2}
 .hint-box{background:#f5f5f5;border-radius:10px;padding:14px 18px;font-size:16px;color:#666;margin-bottom:1.2rem;line-height:1.7}
 
 /* 結果 */
@@ -92,7 +102,7 @@ select.inp{background:#fff;cursor:pointer}
     <p style="font-size:15px;font-weight:700;color:#111;margin-bottom:.2rem">ふじた内科クリニック</p>
     <p style="font-size:13px;color:#888;margin-bottom:1.5rem;line-height:1.8">院長　藤田　雅史<br>〒662-0934　兵庫県西宮市西宮浜4丁目14-3<br>TEL：0798-35-1530</p>
     <h1>長谷川式認知症スケール</h1>
-    <p style="font-size:13px;color:#aaa;margin-bottom:.3rem">改訂長谷川式簡易知能評価スケール（HDS-R）</p>
+    <p style="font-size:13px;color:#aaa;margin-bottom:.3rem">改訂長谷川式簡易知能評価スケール（HDS-R）　iPad版</p>
     <p class="sub" style="margin-top:1rem">全9問です。<br>各設問に沿って採点してください。</p>
     <button class="big-btn" id="startBtn">はじめる</button>
   </div>
@@ -103,7 +113,8 @@ select.inp{background:#fff;cursor:pointer}
   <div class="card">
     <h2>患者情報の入力</h2>
     <div class="field"><label>お名前</label><input type="text" id="ptName" placeholder="山田 太郎"></div>
-    <div class="field"><label>生年月日</label><input type="text" id="ptDob" placeholder="1945年3月15日" oninput="calcAgeFromDob()"></div>
+    <div class="field"><label>生年月日（西暦・和暦どちらでも可）</label><input type="text" id="ptDob" placeholder="昭和20年3月15日　または　S20.3.15　または　1945年3月15日" oninput="calcAgeFromDob()">
+      <div id="dobInfo" style="font-size:15px;color:#666;margin-top:.4rem;min-height:1.2em"></div></div>
     <div class="field"><label>年齢（自動計算）</label><input type="text" id="ptAge" placeholder="生年月日を入力すると自動表示" inputmode="numeric" style="background:#f5f5f5;color:#555"></div>
     <button class="big-btn" id="beginBtn">問診を開始する</button>
   </div>
@@ -169,16 +180,69 @@ select.inp{background:#fff;cursor:pointer}
 </div><!-- /app -->
 
 <script>
+// ------- 生年月日の解析（西暦・和暦の両対応） -------
+// 西暦：1945年3月15日 / 1945/3/15 / 1945-3-15 / 1945.3.15
+// 和暦：昭和20年3月15日 / 昭和元年 / S20.3.15 / S20/3/15 / s20-3-15 / 昭20.3.15
+var ERAS = [
+  {names:['令和','令','R'], start:2019, from:[2019,5,1]},
+  {names:['平成','平','H'], start:1989, from:[1989,1,8]},
+  {names:['昭和','昭','S'], start:1926, from:[1926,12,25]},
+  {names:['大正','大','T'], start:1912, from:[1912,7,30]},
+  {names:['明治','明','M'], start:1868, from:[1868,1,25]}
+];
+function parseDob(str) {
+  if (!str) return null;
+  // 全角数字・記号を半角に、空白を除去
+  var s = str.replace(/[０-９]/g, function(c){ return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); })
+             .replace(/[／]/g, '/').replace(/[－ー−‐]/g, '-').replace(/[．。、]/g, '.')
+             .replace(/[\s　]/g, '').toUpperCase();
+  var era = null, rest = s;
+  for (var i = 0; i < ERAS.length && !era; i++) {
+    for (var j = 0; j < ERAS[i].names.length; j++) {
+      var nm = ERAS[i].names[j].toUpperCase();
+      if (s.indexOf(nm) === 0) { era = ERAS[i]; rest = s.slice(nm.length); break; }
+    }
+  }
+  rest = rest.replace(/^元/, '1');
+  var m = rest.match(/^(\d{1,4})[年\/\-\.](\d{1,2})[月\/\-\.](\d{1,2})日?$/);
+  if (!m) return null;
+  var y = parseInt(m[1], 10), mo = parseInt(m[2], 10), d = parseInt(m[3], 10);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  if (era) {
+    if (y < 1 || y > 64) return null;
+    y = era.start + y - 1;
+  } else if (y < 1000) {
+    return null;  // 元号なしの2〜3桁の年は判別できないため受け付けない
+  }
+  return {y:y, m:mo, d:d, wareki:!!era};
+}
+
+// 西暦→和暦の表示用
+function toWareki(y, mo, d) {
+  var v = y * 10000 + mo * 100 + d;
+  for (var i = 0; i < ERAS.length; i++) {
+    var f = ERAS[i].from, fv = f[0] * 10000 + f[1] * 100 + f[2];
+    if (v >= fv) {
+      var n = y - ERAS[i].start + 1;
+      return ERAS[i].names[0] + (n === 1 ? '元' : n) + '年' + mo + '月' + d + '日';
+    }
+  }
+  return '';
+}
+
+var _dobParsed = null;
 function calcAgeFromDob() {
   var dob = document.getElementById('ptDob').value;
-  // 「1945年3月15日」「1945/3/15」「1945-3-15」などに対応
-  var m = dob.match(/(\d{1,4})[年\/\-\.](\d{1,2})[月\/\-\.](\d{1,2})/);
-  if (!m) { document.getElementById('ptAge').value = ''; return; }
-  var y = parseInt(m[1]), mo = parseInt(m[2]), d = parseInt(m[3]);
-  // 和暦対応（大正・昭和・平成・令和）
-  if (y < 200) {
-    // 和暦の場合は西暦に変換できないのでそのまま
+  var info = document.getElementById('dobInfo');
+  var p = parseDob(dob);
+  _dobParsed = p;
+  if (!p) {
+    document.getElementById('ptAge').value = '';
+    info.textContent = dob ? '例：昭和20年3月15日 / S20.3.15 / 1945年3月15日 の形式で入力してください' : '';
+    return;
   }
+  var y = p.y, mo = p.m, d = p.d;
+  info.textContent = '→ ' + y + '年' + mo + '月' + d + '日（' + toWareki(y, mo, d) + '）';
   var today = new Date();
   var age = today.getFullYear() - y;
   if (today.getMonth() + 1 < mo || (today.getMonth() + 1 === mo && today.getDate() < d)) age--;
@@ -204,11 +268,33 @@ function show(id) {
 }
 
 // ------- イベント -------
-document.getElementById('startBtn').onclick = function() { show('pat'); };
+// ------- iPad：音声読み上げの解錠 -------
+// iPad の Safari は、タップ操作の中で一度読み上げを開始しないと、
+// その後の自動読み上げ（タイマーからの読み上げ）が鳴らないため、最初のボタンで解錠する
+var _speechUnlocked = false;
+function unlockSpeech() {
+  if (_speechUnlocked || !window.speechSynthesis) return;
+  try {
+    var u = new SpeechSynthesisUtterance('　');
+    u.lang = 'ja-JP';
+    u.volume = 0;
+    window.speechSynthesis.speak(u);
+    getJaVoice();
+    _speechUnlocked = true;
+  } catch (e) {}
+}
+
+document.getElementById('startBtn').onclick = function() { unlockSpeech(); show('pat'); };
 
 document.getElementById('beginBtn').onclick = function() {
+  unlockSpeech();
   pat.name = document.getElementById('ptName').value || '未入力';
   pat.dob  = document.getElementById('ptDob').value  || '未入力';
+  // 解析できた場合は「和暦（西暦）」の統一形式で結果・印刷に表示
+  if (_dobParsed) {
+    var dp = _dobParsed;
+    pat.dob = toWareki(dp.y, dp.m, dp.d) + '（' + dp.y + '年）';
+  }
   pat.age  = document.getElementById('ptAge').value  || '0';
   cur = 0; ans = {};
   show('qscreen');
@@ -284,31 +370,175 @@ function speakAndListen(text, inputId, onFinal) {
 var Q2_SPEAK_TEXT = 'きょうは　なんねん、なんがつ、なんにち、なんようびですか？';
 
 // 数字列をゆっくり読む（数字の間に間を入れる）
-function speakSequence(texts, delay, onDone) {
-  window.speechSynthesis.cancel();
+// 読み上げ列の世代番号：新しい読み上げ／画面切替で古い列の続きを確実に止める
+var _seqToken = 0;
+
+// Q4「桜・猫・電車」の読み上げ設定（間隔はここで調整できます）
+var MEMO_WORD_GAP_MS = 1500;   // 単語と単語の間（ミリ秒）。1500 = 1.5秒
+var MEMO_WORD_RATE   = 0.80;   // 単語の読む速さ（1.0が標準、小さいほどゆっくり）
+var MEMO_AFTER_INTRO_MS = 1000; // 説明文のあと「さくら」までの間（ミリ秒）
+var _memoUtter = null;
+var _memoDone = null;
+var _memoShowWord = null;
+// 画面への単語表示（患者さんと画面を共有するため、読み上げに合わせて1語ずつ短く表示）
+var MEMO_SHOW_WORDS   = true;  // false にすると単語を画面に一切表示しない
+var MEMO_WORD_SHOW_MS = 1000;  // 1語を表示しておく時間（ミリ秒）
+
+// ------- 読み上げ終了を確実に検知して次へ進む -------
+// Chrome では長い文などで onend が来ないことがあるため、
+// ① onend/onerror ② 読み上げ中フラグ(speaking)の監視 ③ 文字数から見積もった時間切れ
+// のうち最初に来たもので、1回だけ cb を呼ぶ
+var _keepUtter = [];
+// 1文字あたりの読み上げ時間の目安（ミリ秒、速さ1.0のとき）
+// 小さくすると間が短くなりますが、小さすぎると文の最後が切れることがあります
+var SPEECH_MS_PER_CHAR = 140;
+// 前の読み上げが「時間切れ」で終了扱いになった＝Chrome が読み上げ中のまま固まっている可能性
+var _synthStuck = false;
+function speakThen(msg, cb) {
+  _keepUtter.push(msg);                       // GC で消されないよう保持
+  if (_keepUtter.length > 20) _keepUtter.shift();
+  // 固まった状態のままだと次の読み上げが順番待ちで止まるので、リセットしてから読む
+  if (_synthStuck) { window.speechSynthesis.cancel(); _synthStuck = false; }
+  var fired = false, seen = false, poll = null, maxT = null;
+  var startAt = Date.now();
+  function finish(byTimeout) {
+    if (fired) return;
+    fired = true;
+    clearInterval(poll); clearTimeout(maxT);
+    if (byTimeout === true) _synthStuck = true;
+    if (cb) cb();
+  }
+  function timeoutFinish() { finish(true); }
+  // 文字数から所要時間を見積もる（読み始めた時点から数える）
+  var rate = msg.rate || 1;
+  var estMs = 300 + (msg.text.length * SPEECH_MS_PER_CHAR) / rate;
+  msg.onstart = function() {
+    seen = true;
+    clearTimeout(maxT);
+    maxT = setTimeout(timeoutFinish, estMs);
+  };
+  msg.onend = function() { finish(false); };
+  msg.onerror = function() { finish(false); };
+  // 読み始めの合図も来ない場合に備え、少し余裕をもたせた時間切れ
+  maxT = setTimeout(timeoutFinish, estMs + 1500);
+  poll = setInterval(function() {
+    var s = window.speechSynthesis.speaking || window.speechSynthesis.pending;
+    if (s) { seen = true; return; }
+    // 一度でも読み上げが始まった後に止まっていれば終了とみなす
+    if (seen && Date.now() - startAt > 500) finish(false);
+  }, 250);
+  window.speechSynthesis.speak(msg);
+}
+
+// 読み上げ用 utterance を作る共通関数
+function makeUtter(text, rate) {
+  var m = new SpeechSynthesisUtterance();
+  m.text = text;
+  m.lang = 'ja-JP';
+  m.rate = rate || 0.88;
+  m.pitch = 1.05;
+  m.volume = 1.0;
+  var v = getJaVoice();
+  if (v) m.voice = v;
+  return m;
+}
+
+// Q6 の数字（6−8−2／3−5−2−9）を患者さんから見えにくくする薄いグレー
+// もっと薄く：#e6e6e6　少し濃く：#bbbbbb
+var Q6_FAINT = '#d4d4d4';
+
+// Q5：「93ひく7は？」を読み上げたか（1回だけ読むため）
+var _q5Asked93 = false;
+function askQ5Second() {
+  if (_q5Asked93) return;
+  _q5Asked93 = true;
+  var tok = _seqToken;
+  setTimeout(function() {
+    if (tok !== _seqToken) return;   // その間に設問を移動していたら読まない
+    speakThen(makeUtter('きゅうじゅうさん　ひく　ななは？', 0.85), null);
+  }, 500);
+}
+
+function speakSequence(texts, delay, onDone, rate, onItem) {
+  // ここでは cancel しない（直前の説明文の読み終わりを打ち切らないため。
+  // 設問切替時の停止は各設問の読み上げ開始時の cancel と _seqToken で行う）
+  var myToken = ++_seqToken;
   var index = 0;
   function next() {
+    if (myToken !== _seqToken) return;   // 中断された古い列は何もしない
     if (index >= texts.length) { if (onDone) onDone(); return; }
     var msg = new SpeechSynthesisUtterance();
     msg.text = texts[index];
     msg.lang = 'ja-JP';
-    msg.rate = 0.70;   // 数字はさらにゆっくり
+    msg.rate = rate || 0.70;   // 数字はさらにゆっくり
     msg.pitch = 1.05;
     msg.volume = 1.0;
     var v = getJaVoice();
     if (v) msg.voice = v;
+    if (onItem) onItem(index, texts[index]);
     index++;
-    msg.onend = function() { setTimeout(next, delay || 400); };
-    window.speechSynthesis.speak(msg);
+    speakThen(msg, function() { setTimeout(next, delay || 400); });
   }
   next();
 }
 
+// ------- Q8 動画の自動再生 -------
+// 読み上げ用 utterance をグローバルに保持（Chrome で GC され onend が発火しない不具合対策）
+var _itemsUtter = null;
+var _itemsPlayTimer = null;
+
+// 動画を再生（ブロックされた場合は「タップして再生」ボタンを表示）
+function playItemsVideo() {
+  var vid = document.querySelector('#qarea video');
+  if (!vid || vid.dataset.started === '1') return;
+  vid.dataset.started = '1';
+  vid.currentTime = 0;
+  vid.volume = 1.0;
+  vid.muted = false;
+  var p = vid.play();
+  if (p && p.catch) {
+    p.catch(function() {
+      vid.dataset.started = '';
+      showTapToPlay(vid);
+    });
+  }
+}
+
+function showTapToPlay(vid) {
+  if (document.getElementById('tapPlayBtn')) return;
+  var b = document.createElement('button');
+  b.type = 'button';
+  b.id = 'tapPlayBtn';
+  b.className = 'big-btn';
+  b.textContent = '▶　タップして動画を再生';
+  b.style.cssText = 'display:block;margin:1rem auto;';
+  b.addEventListener('click', function() {
+    b.remove();
+    vid.dataset.started = '1';
+    vid.muted = false;
+    vid.play();
+  });
+  vid.parentNode.insertBefore(b, vid.nextSibling);
+}
+
+// ------- Q6 逆唱の状態管理 -------
+var _q6 = {threeDone:false, fourStarted:false, fourPending:false, timer:null};
+var _q6Utter = null;
+function startFourDigit() {
+  if (_q6.fourStarted) return;               // 既に読み上げ済み・読み上げ中なら何もしない
+  if (!_q6.threeDone) { _q6.fourPending = true; return; }  // 3桁読み上げ中なら終了後に回す
+  _q6.fourStarted = true;
+  clearTimeout(_q6.timer);
+  speakSequence(['さん', 'ご', 'に', 'きゅう'], 500);
+}
+
 function triggerSpeak(q) {
   if (q.type === 'items') {
+    clearTimeout(_itemsPlayTimer);
     setTimeout(function() {
       window.speechSynthesis.cancel();
       var msg = new SpeechSynthesisUtterance();
+      _itemsUtter = msg;
       msg.text = 'これから　５つの　しなものの　どうがを　さいせいします。　あとで　ききますので　どんな　しなものが　あったか　こたえてください。';
       msg.lang = 'ja-JP';
       msg.rate = 0.88;
@@ -316,39 +546,31 @@ function triggerSpeak(q) {
       msg.volume = 1.0;
       var v = getJaVoice();
       if (v) msg.voice = v;
-      msg.onend = function() {
+      var done = false;
+      function afterSpeech() {
+        if (done) return;
+        done = true;
+        clearTimeout(_itemsPlayTimer);
         // 読み上げ終了後1秒待って動画を自動再生
-        setTimeout(function() {
-          var vid = document.querySelector('#qarea video');
-          if (vid) {
-            var p = vid.play();
-            if (p && p.catch) {
-              p.catch(function() {
-                // iPadの自動再生ブロック対策：タップで再生できるようボタンを表示
-                var tapBtn = document.createElement('button');
-                tapBtn.type = 'button';
-                tapBtn.className = 'big-btn';
-                tapBtn.textContent = '▶ 動画を再生';
-                tapBtn.style.cssText = 'display:block;margin:.8rem auto 0';
-                tapBtn.addEventListener('click', function() {
-                  vid.play();
-                  tapBtn.remove();
-                });
-                vid.parentNode.insertBefore(tapBtn, vid.nextSibling);
-              });
-            }
-          }
-        }, 1000);
-      };
-      window.speechSynthesis.speak(msg);
+        setTimeout(playItemsVideo, 1000);
+      }
+      // 保険：終了検知がすべて失敗しても約14秒後には再生開始
+      _itemsPlayTimer = setTimeout(afterSpeech, 14000);
+      speakThen(msg, afterSpeech);
     }, 800);
     return;
   }
 
   if (q.id === 6) {
     // 逆唱：「私が言う数字を逆から言ってください」→ 間 → 「ろく はち に」→ 間 → 「さん ご に きゅう」
+    // 4桁は「3桁採点ボタン」か「3桁終了4秒後」のどちらか早い方で、1回だけ読む
+    _q6 = {threeDone:false, fourStarted:false, fourPending:false, timer:null};
+    var introTok = _seqToken;
     setTimeout(function() {
+      if (introTok !== _seqToken) return;
+      window.speechSynthesis.cancel();
       var intro = new SpeechSynthesisUtterance();
+      _q6Utter = intro;
       intro.text = 'わたしがいう　すうじを、　さかさまに　いってください。';
       intro.lang = 'ja-JP';
       intro.rate = 0.88;
@@ -356,26 +578,78 @@ function triggerSpeak(q) {
       intro.volume = 1.0;
       var v = getJaVoice();
       if (v) intro.voice = v;
-      intro.onend = function() {
+      speakThen(intro, function() {
+        if (introTok !== _seqToken) return;
         // 1秒待って3桁を読む
         setTimeout(function() {
+          if (introTok !== _seqToken) return;
           speakSequence(['ろく', 'はち', 'に'], 500, function() {
-            // 3桁終了後2秒待って4桁
-            setTimeout(function() {
-              speakSequence(['さん', 'ご', 'に', 'きゅう'], 500);
-            }, 4000);
+            _q6.threeDone = true;
+            if (_q6.fourPending) {
+              // 読み上げ中に採点済み → 少し間をおいて4桁
+              _q6.timer = setTimeout(startFourDigit, 800);
+            } else {
+              // 3桁終了後4秒待って4桁
+              _q6.timer = setTimeout(startFourDigit, 4000);
+            }
           });
         }, 1000);
-      };
-      window.speechSynthesis.speak(intro);
+      });
+    }, 800);
+    return;
+  }
+
+  if (q.type === 'memo') {
+    // 説明文 → 1秒 → 「さくら」→ 間 → 「ねこ」→ 間 → 「でんしゃ」（単語ごとに区切って読む）
+    var memoTok = _seqToken;
+    setTimeout(function() {
+      if (memoTok !== _seqToken) return;
+      window.speechSynthesis.cancel();
+      var intro = new SpeechSynthesisUtterance();
+      _memoUtter = intro;
+      intro.text = 'これから言う　みっつの　ことばを　いってみてください。　あとでまた　ききますので　よく　おぼえておいてください。';
+      intro.lang = 'ja-JP';
+      intro.rate = 0.88;
+      intro.pitch = 1.05;
+      intro.volume = 1.0;
+      var v = getJaVoice();
+      if (v) intro.voice = v;
+      speakThen(intro, function() {
+        if (memoTok !== _seqToken) return;
+        setTimeout(function() {
+          if (memoTok !== _seqToken) return;
+          speakSequence(['さくら', 'ねこ', 'でんしゃ'], MEMO_WORD_GAP_MS, function() {
+            if (_memoDone) _memoDone();
+          }, MEMO_WORD_RATE, function(i) {
+            if (_memoShowWord) _memoShowWord(i);
+          });
+        }, MEMO_AFTER_INTRO_MS);
+      });
+    }, 800);
+    return;
+  }
+
+  if (q.id === 5) {
+    // 計算：説明文 → 1秒 →「100ひく7は？」（「93ひく7は？」は100−7を正解にした時だけ）
+    _q5Asked93 = false;
+    var calcTok = _seqToken;
+    setTimeout(function() {
+      if (calcTok !== _seqToken) return;
+      window.speechSynthesis.cancel();
+      _synthStuck = false;
+      speakThen(makeUtter(q.text, 0.88), function() {
+        if (calcTok !== _seqToken) return;
+        setTimeout(function() {
+          if (calcTok !== _seqToken) return;
+          speakThen(makeUtter('ひゃく　ひく　ななは？', 0.85), null);
+        }, 1000);
+      });
     }, 800);
     return;
   }
 
   var text;
-  if (q.type === 'memo') {
-    text = 'これから言う　みっつの　ことばを　いってみてください。　あとでまた　ききますので　よく　おぼえておいてください。　さくら。　ねこ。　でんしゃ。';
-  } else if (q.id === 2) {
+  if (q.id === 2) {
     text = Q2_SPEAK_TEXT;
   } else {
     text = q.text;
@@ -401,7 +675,7 @@ function renderQ() {
     } else if (q.id === 5) {
       subHTML = '100−7＝？<span style="color:#fafafa">（93）</span>　93−7＝？<span style="color:#fafafa">（86）</span>';
     } else if (q.id === 6) {
-      subHTML = '「6−8−2」<span style="color:#fafafa">→正解「2−8−6」</span>　「3−5−2−9」<span style="color:#fafafa">→正解「9−2−5−3」</span>';
+      subHTML = '<span style="color:' + Q6_FAINT + '">「6−8−2」</span><span style="color:#fafafa">→正解「2−8−6」</span>　<span style="color:' + Q6_FAINT + '">「3−5−2−9」</span><span style="color:#fafafa">→正解「9−2−5−3」</span>';
     } else {
       subHTML = (q.sub || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
@@ -410,6 +684,13 @@ function renderQ() {
   document.getElementById('backBtn').disabled = (cur === 0);
   document.getElementById('nextBtn').disabled = false;
   var area = document.getElementById('qarea');
+  // 前の画面の動画が裏で鳴り続けないよう停止
+  area.querySelectorAll('video').forEach(function(v) { try { v.pause(); } catch(e) {} });
+  clearTimeout(_itemsPlayTimer);
+  // 前の設問の数字読み上げ・予約を止める
+  _seqToken++;
+  clearTimeout(_q6.timer);
+  _q6.fourStarted = true; _q6.fourPending = false;
   area.innerHTML = '';
 
   // 描画後に自動読み上げ（items以外）
@@ -417,19 +698,29 @@ function renderQ() {
 
   // === 記銘（読み上げ＋採点）===
   if (q.type === 'memo') {
-    // 単語表示（読み上げ中は大きく表示、2秒後にホワイトアウト）
+    // 単語表示：説明文の間は何も出さず、読み上げた単語だけを短時間表示して消す
     var d = document.createElement('div');
     d.className = 'memo-words';
-    d.textContent = '桜　猫　電車';
-    d.style.cssText = 'transition:opacity 1s ease;';
+    d.textContent = '　';                       // 高さだけ確保（レイアウトが動かないように）
+    d.style.cssText = 'visibility:hidden;min-height:1.3em;';
     area.appendChild(d);
-    // 音声読み上げ時間（約6秒）＋2秒後にホワイトアウト
-    setTimeout(function() {
-      d.style.opacity = '0';
-      setTimeout(function() {
-        d.style.visibility = 'hidden';
-      }, 1000);
-    }, 8000);
+    var MEMO_KANJI = ['桜', '猫', '電車'];
+    var hideT = null;
+    function hideWord() {
+      clearTimeout(hideT);
+      d.style.visibility = 'hidden';
+      d.textContent = '　';
+    }
+    _memoShowWord = function(i) {
+      if (!MEMO_SHOW_WORDS || !d.isConnected) return;
+      clearTimeout(hideT);
+      d.textContent = MEMO_KANJI[i];
+      d.style.visibility = 'visible';
+      hideT = setTimeout(hideWord, MEMO_WORD_SHOW_MS);
+    };
+    _memoDone = function() { _memoDone = null; };
+    // 保険：何かあっても25秒後には必ず消す
+    setTimeout(hideWord, 25000);
 
     if (!ans[q.id]) ans[q.id] = {w:{桜:false,猫:false,電車:false}, score:0, detail:''};
 
@@ -629,6 +920,8 @@ function renderQ() {
         ans[5].items[p.k] = true;
         updateCalcScore();
         btnOk.classList.add('sel'); btnNg.classList.remove('sel');
+        // 100−7 が正解のときだけ、次の「93ひく7は？」を読み上げる
+        if (p.k === 'a') askQ5Second();
       });
       btnNg.addEventListener('click', function() {
         ans[5].items[p.k] = false;
@@ -649,6 +942,7 @@ function renderQ() {
     var note = document.createElement('div');
     note.className = 'hint-box';
     note.textContent = '「6−8−2」の採点後、自動的に「3−5−2−9」を読み上げます。';
+    note.style.color = Q6_FAINT;
     area.appendChild(note);
 
     var revPairs = [
@@ -660,9 +954,11 @@ function renderQ() {
 
     // 4桁読み上げ関数（aの採点後に呼ぶ）
     function speak4digit() {
-      setTimeout(function() {
-        speakSequence(['さん', 'ご', 'に', 'きゅう'], 500);
-      }, 800);
+      // 3桁の採点後に4桁へ（自動読み上げと重複しないよう startFourDigit で一本化）
+      if (_q6.fourStarted || _q6.fourPending) return;
+      if (!_q6.threeDone) { _q6.fourPending = true; return; }
+      clearTimeout(_q6.timer);
+      _q6.timer = setTimeout(startFourDigit, 800);
     }
 
     function updateRevScore() {
@@ -678,7 +974,7 @@ function renderQ() {
       var topRow = document.createElement('div');
       topRow.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap';
       var lbl = document.createElement('span');
-      lbl.style.cssText = 'font-size:19px;font-weight:700;color:#333;flex-shrink:0';
+      lbl.style.cssText = 'font-size:19px;font-weight:700;color:' + Q6_FAINT + ';flex-shrink:0';
       lbl.textContent = p.lbl;
       var hint = document.createElement('span');
       hint.style.cssText = 'font-size:14px;color:#fafafa';
@@ -769,8 +1065,21 @@ function renderQ() {
     var vid = document.createElement('video');
     vid.src = 'items_video.mp4';
     vid.controls = true;
+    vid.preload = 'auto';
+    vid.playsInline = true;
     vid.setAttribute('playsinline', '');
-    vid.setAttribute('webkit-playsinline', '');
+    // 「次へ」クリック中（ユーザー操作内）に一瞬だけ無音で再生→停止し、
+    // 後から音声付きで自動再生できるよう動画を「解錠」しておく
+    (function unlock() {
+      // iPad は音量(volume)の変更を受け付けないため、消音(muted)で一瞬再生して解錠する
+      vid.muted = true;
+      var p = vid.play();
+      if (p && p.then) {
+        p.then(function() {
+          if (vid.dataset.started !== '1') { vid.pause(); vid.currentTime = 0; vid.muted = false; }
+        }).catch(function() { vid.muted = false; });
+      }
+    })();
     vid.style.cssText = 'width:100%;max-width:720px;border-radius:12px';
     vid.onended = function() {
       setTimeout(function() {
