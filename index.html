@@ -102,7 +102,7 @@ select.inp{background:#fff;cursor:pointer}
     <p style="font-size:15px;font-weight:700;color:#111;margin-bottom:.2rem">ふじた内科クリニック</p>
     <p style="font-size:13px;color:#888;margin-bottom:1.5rem;line-height:1.8">院長　藤田　雅史<br>〒662-0934　兵庫県西宮市西宮浜4丁目14-3<br>TEL：0798-35-1530</p>
     <h1>長谷川式認知症スケール</h1>
-    <p style="font-size:13px;color:#aaa;margin-bottom:.3rem">改訂長谷川式簡易知能評価スケール（HDS-R）　iPad版</p>
+    <p style="font-size:13px;color:#aaa;margin-bottom:.3rem">改訂長谷川式簡易知能評価スケール（HDS-R）　iPad版（Ver1.4 VOICEVOX音声）</p>
     <p class="sub" style="margin-top:1rem">全9問です。<br>各設問に沿って採点してください。</p>
     <button class="big-btn" id="startBtn">はじめる</button>
   </div>
@@ -284,10 +284,11 @@ function unlockSpeech() {
   } catch (e) {}
 }
 
-document.getElementById('startBtn').onclick = function() { unlockSpeech(); show('pat'); };
+document.getElementById('startBtn').onclick = function() { unlockSpeech(); initVoiceAudio(); show('pat'); };
 
 document.getElementById('beginBtn').onclick = function() {
   unlockSpeech();
+  initVoiceAudio();
   pat.name = document.getElementById('ptName').value || '未入力';
   pat.dob  = document.getElementById('ptDob').value  || '未入力';
   // 解析できた場合は「和暦（西暦）」の統一形式で結果・印刷に表示
@@ -332,6 +333,161 @@ var Qs = [
 // ------- 音声読み上げ＋マイク自動起動 -------
 var _jaVoice = null;
 
+// ======= VOICEVOX 音声ファイル再生（iPad版） =======
+// 読み上げ文と同じ文字列が下の表にあれば、voice フォルダの音声（VOICEVOX:九州そら ノーマル・抑揚60%）を再生します。
+// iPad の Safari でも確実に鳴るよう、Web Audio（最初のタップで解錠）で再生します。
+// 読み込めない場合は音声ファイルを直接再生し、それも無理なら従来のブラウザ音声で読み上げます。
+var USE_VOICEVOX = true;      // false にすると従来のブラウザ音声に戻ります
+var VOICE_DIR = 'voice/';     // 音声ファイルのフォルダ（index.html と同じ場所に置く）
+var VOICE_FILES = {
+  "あなたのお年齢を教えてください。": "q1.mp3",
+  "きょうは　なんねん、なんがつ、なんにち、なんようびですか？": "q2.mp3",
+  "私たちが今いる場所はどこですか？": "q3.mp3",
+  "これから言う　みっつの　ことばを　いってみてください。　あとでまた　ききますので　よく　おぼえておいてください。": "q4_intro.mp3",
+  "さくら": "q4_sakura.mp3",
+  "ねこ": "q4_neko.mp3",
+  "でんしゃ": "q4_densha.mp3",
+  "100から7を引いてください。\nそこからまた7を引いてください。": "q5_intro.mp3",
+  "ひゃく　ひく　ななは？": "q5_100.mp3",
+  "きゅうじゅうさん　ひく　ななは？": "q5_93.mp3",
+  "わたしがいう　すうじを、　さかさまに　いってください。": "q6_intro.mp3",
+  "ろく": "d_roku.mp3",
+  "はち": "d_hachi.mp3",
+  "に": "d_ni.mp3",
+  "さん": "d_san.mp3",
+  "ご": "d_go.mp3",
+  "きゅう": "d_kyuu.mp3",
+  "先ほど覚えた3つの言葉を言ってください。": "q7.mp3",
+  "にほんの　はなは？": "q7_hint1.mp3",
+  "どうぶつは？": "q7_hint2.mp3",
+  "のりものは？": "q7_hint3.mp3",
+  "これから　５つの　しなものの　どうがを　さいせいします。　あとで　ききますので　どんな　しなものが　あったか　こたえてください。": "q8_intro.mp3",
+  "何があったか　こたえてください。": "q8_ask.mp3",
+  "野菜の名前をできるだけ多く言ってください。": "q9.mp3"
+
+};
+var _voiceCache = {}, _voiceMissing = {}, _curAudio = null;
+var _actx = null, _voiceBuf = {}, _voiceLoading = false, _curSrc = null;
+
+function voiceFileFor(text) {
+  if (!USE_VOICEVOX || !text) return null;
+  var f = VOICE_FILES[text];
+  return (f && !_voiceMissing[f]) ? f : null;
+}
+
+// タップ操作の中で呼ぶ：Web Audio を解錠し、音声を先読みする
+function initVoiceAudio() {
+  if (!USE_VOICEVOX) return;
+  // iPad のマナーモード（消音）でも鳴らす（iPadOS 17 以降）
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+  var AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  try {
+    if (!_actx) _actx = new AC();
+    if (_actx.state !== 'running') _actx.resume();
+    // 無音を一瞬鳴らして解錠
+    var b = _actx.createBuffer(1, 1, 22050), src = _actx.createBufferSource();
+    src.buffer = b; src.connect(_actx.destination); src.start(0);
+  } catch (e) { return; }
+  loadVoiceBuffers();
+}
+function loadVoiceBuffers() {
+  if (_voiceLoading || !_actx || !window.fetch) return;
+  _voiceLoading = true;
+  var seen = {};
+  Object.keys(VOICE_FILES).forEach(function(k) {
+    var f = VOICE_FILES[k];
+    if (seen[f]) return;
+    seen[f] = true;
+    fetch(VOICE_DIR + f).then(function(r) {
+      if (!r.ok) throw new Error('not found');
+      return r.arrayBuffer();
+    }).then(function(ab) {
+      return new Promise(function(res, rej) { _actx.decodeAudioData(ab, res, rej); });
+    }).then(function(buf) { _voiceBuf[f] = buf; }).catch(function() {});
+  });
+}
+// 画面をタップするたびに、止まっていた Web Audio を再開（スリープ復帰後など）
+document.addEventListener('touchend', function() {
+  if (_actx && _actx.state !== 'running') { try { _actx.resume(); } catch (e) {} }
+}, true);
+document.addEventListener('click', function() {
+  if (_actx && _actx.state !== 'running') { try { _actx.resume(); } catch (e) {} }
+}, true);
+
+function getAudio(file) {
+  if (!_voiceCache[file]) {
+    var a = new Audio(VOICE_DIR + file);
+    a.preload = 'auto';
+    _voiceCache[file] = a;
+  }
+  return _voiceCache[file];
+}
+function stopVoice() {
+  if (_curSrc) {
+    var s = _curSrc; _curSrc = null;
+    s.onended = null;
+    try { s.stop(0); } catch (e) {}
+  }
+  if (_curAudio) {
+    var a = _curAudio; _curAudio = null;
+    a.onended = null; a.onerror = null;
+    try { a.pause(); a.currentTime = 0; } catch (e) {}
+  }
+}
+function cancelSpeech() {
+  stopVoice();
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+}
+// 音声ファイルで再生できれば true（終了時に cb）。失敗したら fallback（ブラウザ音声）を呼ぶ
+function playVoice(text, cb, fallback) {
+  var file = voiceFileFor(text);
+  if (!file) return false;
+  cancelSpeech();
+  // ① Web Audio（iPad で最も確実）
+  if (_actx && _actx.state === 'running' && _voiceBuf[file]) {
+    try {
+      var src = _actx.createBufferSource();
+      src.buffer = _voiceBuf[file];
+      src.connect(_actx.destination);
+      src.onended = function() {
+        if (_curSrc !== src) return;   // 途中で止めた場合は何もしない
+        _curSrc = null;
+        if (cb) cb();
+      };
+      _curSrc = src;
+      src.start(0);
+      return true;
+    } catch (e) { _curSrc = null; }
+  }
+  // ② 音声ファイルを直接再生
+  var a = getAudio(file);
+  var done = false;
+  function cleanup() {
+    done = true;
+    if (_curAudio === a) _curAudio = null;
+    a.onended = null; a.onerror = null;
+  }
+  a.onended = function() { if (done) return; cleanup(); if (cb) cb(); };
+  a.onerror = function() {
+    if (done) return; cleanup();
+    _voiceMissing[file] = true;
+    if (fallback) fallback();
+  };
+  _curAudio = a;
+  a.muted = false;
+  try { a.currentTime = 0; } catch (e) {}
+  var p = a.play();
+  if (p && p.catch) {
+    p.catch(function(err) {
+      if (done || (err && err.name === 'AbortError')) return;
+      cleanup();
+      if (fallback) fallback();   // ③ ブラウザ音声
+    });
+  }
+  return true;
+}
+
 function getJaVoice() {
   if (_jaVoice) return _jaVoice;
   var voices = window.speechSynthesis.getVoices();
@@ -353,7 +509,11 @@ if (window.speechSynthesis) {
 }
 
 function speakAndListen(text, inputId, onFinal) {
-  window.speechSynthesis.cancel();
+  if (playVoice(text, null, function() { speakTTS(text); })) return;
+  speakTTS(text);
+}
+function speakTTS(text) {
+  cancelSpeech();
   var msg = new SpeechSynthesisUtterance();
   msg.text = text;
   msg.lang = 'ja-JP';
@@ -395,10 +555,14 @@ var SPEECH_MS_PER_CHAR = 140;
 // 前の読み上げが「時間切れ」で終了扱いになった＝Chrome が読み上げ中のまま固まっている可能性
 var _synthStuck = false;
 function speakThen(msg, cb) {
+  if (playVoice(msg.text, cb, function() { speakThenTTS(msg, cb); })) return;
+  speakThenTTS(msg, cb);
+}
+function speakThenTTS(msg, cb) {
   _keepUtter.push(msg);                       // GC で消されないよう保持
   if (_keepUtter.length > 20) _keepUtter.shift();
   // 固まった状態のままだと次の読み上げが順番待ちで止まるので、リセットしてから読む
-  if (_synthStuck) { window.speechSynthesis.cancel(); _synthStuck = false; }
+  if (_synthStuck) { cancelSpeech(); _synthStuck = false; }
   var fired = false, seen = false, poll = null, maxT = null;
   var startAt = Date.now();
   function finish(byTimeout) {
@@ -536,7 +700,7 @@ function triggerSpeak(q) {
   if (q.type === 'items') {
     clearTimeout(_itemsPlayTimer);
     setTimeout(function() {
-      window.speechSynthesis.cancel();
+      cancelSpeech();
       var msg = new SpeechSynthesisUtterance();
       _itemsUtter = msg;
       msg.text = 'これから　５つの　しなものの　どうがを　さいせいします。　あとで　ききますので　どんな　しなものが　あったか　こたえてください。';
@@ -568,7 +732,7 @@ function triggerSpeak(q) {
     var introTok = _seqToken;
     setTimeout(function() {
       if (introTok !== _seqToken) return;
-      window.speechSynthesis.cancel();
+      cancelSpeech();
       var intro = new SpeechSynthesisUtterance();
       _q6Utter = intro;
       intro.text = 'わたしがいう　すうじを、　さかさまに　いってください。';
@@ -604,7 +768,7 @@ function triggerSpeak(q) {
     var memoTok = _seqToken;
     setTimeout(function() {
       if (memoTok !== _seqToken) return;
-      window.speechSynthesis.cancel();
+      cancelSpeech();
       var intro = new SpeechSynthesisUtterance();
       _memoUtter = intro;
       intro.text = 'これから言う　みっつの　ことばを　いってみてください。　あとでまた　ききますので　よく　おぼえておいてください。';
@@ -635,7 +799,7 @@ function triggerSpeak(q) {
     var calcTok = _seqToken;
     setTimeout(function() {
       if (calcTok !== _seqToken) return;
-      window.speechSynthesis.cancel();
+      cancelSpeech();
       _synthStuck = false;
       speakThen(makeUtter(q.text, 0.88), function() {
         if (calcTok !== _seqToken) return;
@@ -688,6 +852,7 @@ function renderQ() {
   area.querySelectorAll('video').forEach(function(v) { try { v.pause(); } catch(e) {} });
   clearTimeout(_itemsPlayTimer);
   // 前の設問の数字読み上げ・予約を止める
+  stopVoice();
   _seqToken++;
   clearTimeout(_q6.timer);
   _q6.fourStarted = true; _q6.fourPending = false;
